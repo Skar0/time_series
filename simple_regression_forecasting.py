@@ -11,6 +11,7 @@ from sklearn.linear_model import LinearRegression
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+
 def splitter(df: pd.DataFrame, steps_in: int, steps_out: int):
     """
     :param df:  pandas DataFrame to split
@@ -43,16 +44,24 @@ def splitter(df: pd.DataFrame, steps_in: int, steps_out: int):
     return np.array(X), np.array(y)
 
 
-def to_predictable(df: pd.DataFrame):
+def to_predictable(df: pd.DataFrame, steps_in):
     """
     transform a dataframe to an array ready to be used by the regression models
     :param df:
     :return:
     """
+    lenght = len(df.index)
     (index, series) = tuple(df.shape)
-    values = df.values
-    values = np.array(values).reshape((len(values)*series,))
-    return values
+    k = lenght // steps_in
+    l = []
+    for i in range(k):
+        values = np.array(df.loc[df.index[k*steps_in:(k+1)*steps_in]].values)
+        values = values.reshape((len(values)*series,))
+        l.append(values)
+
+    return np.array(l)
+
+
 
 def to_dataframe(ar, shape, index):
     """
@@ -63,6 +72,32 @@ def to_dataframe(ar, shape, index):
     """
     return pd.DataFrame(ar.reshape(shape), index=index)
 
+
+def find_bounds_and_split(df: pd.DataFrame, steps_in, steps_out,
+                          validation_size=0.2):
+    length_df = len(df.index)
+
+    # create size that are multiples of our steps_in and steps_out
+    val_size = int(length_df*validation_size) - \
+               (int(length_df*validation_size)) % steps_in
+
+    train_df = df.head(length_df - val_size).copy()
+    val_df = df.tail(val_size).copy()
+
+    (X, y) = splitter(train_df, steps_in, steps_out)
+    val_data = to_predictable(val_df, steps_in)
+
+    # store everything in a dictionnary and return
+    struct = {}
+    struct['train_df'] = train_df
+    struct['val_df'] = val_df
+    struct['shape'] = tuple(df.index)
+    struct['X'] = X
+    struct['y'] = y
+    struct['val_index'] = val_df.index
+    struct['val_data'] = val_data
+
+    return struct
 
 def smape_loss(y_true, y_pred):
     """
@@ -77,18 +112,27 @@ def smape_loss(y_true, y_pred):
     return np.mean(diff)
 
 
-def fit_and_predict(df,
-                    df_to_pred,
-                    model,
-                    steps_in,
-                    steps_out,
-                    pred_index,
-                    loss_function,
-                    test_size=0.3,
-                    random_state=314):
-    (X, y) = splitter(df, steps_in, steps_out)
-    (X_train, X_test, y_train, y_test) = \
-        train_test_split(X, y, test_size=test_size, random_state=random_state)
-    model.fit(X_train, y_train)
+def fit_and_predict(df: pd.DataFrame, df_to_pred, index_to_pred, model,
+                    loss_function, steps_in, steps_out, validation_size=0.2):
 
-    df_pred = to_dataframe()
+    # recover everything with the struct
+    struct = find_bounds_and_split(df, steps_in, steps_out,
+                                   validation_size=validation_size)
+
+    model.fit(struct['X'], struct['y'])
+
+    val_data = struct['val_data']
+    val_df = struct['val_df']
+    val_df_ar = to_predictable(val_df, steps_in)
+    val_pred = model.predict(val_data)
+    val_pred_df = to_dataframe(val_pred, tuple(val_df.shape), val_df.index)
+    score = loss_function(val_df_ar, val_pred)
+
+    ar_to_pred = to_predictable(df_to_pred, steps_in)
+    ar_pred = model.predict(ar_to_pred)
+
+    shape = (steps_out, struct['shape'][1])
+
+    df_pred = to_dataframe(ar_pred, shape, index_to_pred)
+
+    return (df_pred, val_pred_df, score)
