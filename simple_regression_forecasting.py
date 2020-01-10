@@ -12,6 +12,47 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
+def split_between_train_and_val(df: pd.DataFrame, steps_in, steps_out):
+    train_df = df.head(len(df)-steps_in-steps_out).copy()
+    val_df = df.tail(steps_in+steps_out).copy()
+    val_df_X = val_df.head(steps_in).copy()
+    val_df_y = val_df.tail(steps_out).copy()
+    return (train_df, val_df_X, val_df_y)
+
+def transfrom_to_list_of_df(df: pd.DataFrame):
+    (index, series) = tuple(df.shape)
+    l = []
+    for ser in range(series):
+        dfc = pd.DataFrame(df.iloc[:, ser]).copy()
+        l.append(dfc)
+
+    return l
+
+def transform_to_list_of_tuples(df: pd.DataFrame, steps_in, steps_out):
+    (index, series) = tuple(df.shape)
+
+    (train_df, val_df_X, val_df_y) = split_between_train_and_val(df, steps_in, steps_out)
+
+    l_train = transfrom_to_list_of_df(train_df)
+    l_val_X = transfrom_to_list_of_df(val_df_X)
+    l_val_y = transfrom_to_list_of_df(val_df_y)
+
+    tuple_of_series = []
+
+    for i in range(series):
+        (X,y) = splitter(l_train[i], steps_in, steps_out)
+
+        values_val_X =  l_val_X[i].values
+        values_val_y = l_val_y[i].values
+
+        validation_X =  values_val_X.reshape((len(values_val_X),))
+        validation_y = values_val_y.reshape((len(values_val_y),))
+
+        tuple_of_series.append([(X, y), (validation_X, validation_y)])
+
+    return tuple_of_series
+
+
 def splitter(df: pd.DataFrame, steps_in: int, steps_out: int):
     """
     :param df:  pandas DataFrame to split
@@ -43,62 +84,6 @@ def splitter(df: pd.DataFrame, steps_in: int, steps_out: int):
 
     return np.array(X), np.array(y)
 
-
-def to_predictable(df: pd.DataFrame, steps_in):
-    """
-    transform a dataframe to an array ready to be used by the regression models
-    :param df:
-    :return:
-    """
-    lenght = len(df.index)
-    (index, series) = tuple(df.shape)
-    k = lenght // steps_in
-    l = []
-    for i in range(k):
-        values = np.array(df.loc[df.index[k*steps_in:(k+1)*steps_in]].values)
-        values = values.reshape((len(values)*series,))
-        l.append(values)
-
-    return np.array(l)
-
-
-
-def to_dataframe(ar, shape, index):
-    """
-    transfrom an array to a dataframe
-    :param ar:
-    :param shape:
-    :return:
-    """
-    return pd.DataFrame(ar.reshape(shape), index=index)
-
-
-def find_bounds_and_split(df: pd.DataFrame, steps_in, steps_out,
-                          validation_size=0.2):
-    length_df = len(df.index)
-
-    # create size that are multiples of our steps_in and steps_out
-    val_size = int(length_df*validation_size) - \
-               (int(length_df*validation_size)) % steps_in
-
-    train_df = df.head(length_df - val_size).copy()
-    val_df = df.tail(val_size).copy()
-
-    (X, y) = splitter(train_df, steps_in, steps_out)
-    val_data = to_predictable(val_df, steps_in)
-
-    # store everything in a dictionnary and return
-    struct = {}
-    struct['train_df'] = train_df
-    struct['val_df'] = val_df
-    struct['shape'] = tuple(df.index)
-    struct['X'] = X
-    struct['y'] = y
-    struct['val_index'] = val_df.index
-    struct['val_data'] = val_data
-
-    return struct
-
 def smape_loss(y_true, y_pred):
     """
     Error function
@@ -112,27 +97,133 @@ def smape_loss(y_true, y_pred):
     return np.mean(diff)
 
 
-def fit_and_predict(df: pd.DataFrame, df_to_pred, index_to_pred, model,
-                    loss_function, steps_in, steps_out, validation_size=0.2):
+def train_for_model(lot, model):
+    models = {}
+    for i in range(len(lot)):
+        m = model()
+        [(X, y), (val_X, val_y)] = lot[i]
+        m.fit(X, y)
+        models[i] = m
 
-    # recover everything with the struct
-    struct = find_bounds_and_split(df, steps_in, steps_out,
-                                   validation_size=validation_size)
+    return models
 
-    model.fit(struct['X'], struct['y'])
 
-    val_data = struct['val_data']
-    val_df = struct['val_df']
-    val_df_ar = to_predictable(val_df, steps_in)
-    val_pred = model.predict(val_data)
-    val_pred_df = to_dataframe(val_pred, tuple(val_df.shape), val_df.index)
-    score = loss_function(val_df_ar, val_pred)
+def predict_horizon(df, models, steps_in, steps_out):
+    (index, series) = tuple(df.shape)
+    tail = df.tail(steps_in).copy()
+    preds = []
 
-    ar_to_pred = to_predictable(df_to_pred, steps_in)
-    ar_pred = model.predict(ar_to_pred)
+    # predict for each series
+    for ser in range(series):
+        val = tail.iloc[:, ser].values
+        val_X = np.array(val).reshape((len(val),))
+        pred_y = models[ser].predict(val_X.reshape(1, -1))
+        preds.append(pred_y)
 
-    shape = (steps_out, struct['shape'][1])
+    # create new index
+    index_range = create_next_index(df, steps_out)
 
-    df_pred = to_dataframe(ar_pred, shape, index_to_pred)
+    # transfrom the predictions in a dataframe
+    preds = np.array(preds)
+    preds = preds.reshape((steps_out, series))
+    preds = pd.DataFrame(preds, index=index_range)
+    preds = preds.rename(columns=create_rename_dic())
 
-    return (df_pred, val_pred_df, score)
+    return preds
+
+
+def main_by_model(df, model, steps_in, steps_out, loss_function):
+    # get everything
+    lot = transform_to_list_of_tuples(df, steps_in, steps_out)
+    models = train_for_model(lot, model)
+
+    score = []
+    for i in range(len(lot)):
+        [(X, y), (val_X, val_y)] = lot[i]
+        val_X_pred = models[i].predict(val_X.reshape(1, -1))
+        v = loss_function(val_X_pred, val_y)
+        # print(v)
+        score.append(v)
+
+    preds = predict_horizon(df, models, steps_in, steps_out)
+    preds = preds.rename(columns=create_rename_dic())
+
+    return (preds, models, score)
+
+def create_next_index(df: pd.DataFrame, steps_out):
+    last_day = df.index[-1]
+    prob_index_range = pd.date_range(start=last_day, periods=steps_out+1)
+    index_range = prob_index_range[1:]
+
+    return index_range
+
+def predict_next(df: pd.DataFrame, models, steps_in, steps_out):
+    (index, series) = tuple(df.shape)
+    index_range = create_next_index(df, steps_out)
+
+    if index == steps_in:
+        preds = []
+
+        for serie in range(series):
+            # transform in predictable array
+            val = df.iloc[:, serie].values
+            val = np.array(val).reshape((len(val),))
+
+            pred = models[serie].predict(val.reshape(1, -1))
+            preds.append(pred)
+
+        preds = np.array(preds)
+        preds = preds.reshape((steps_out, series))
+
+        preds = pd.DataFrame(preds, index=index_range)
+        preds = preds.rename(columns=create_rename_dic())
+
+        return preds
+
+    return None
+
+# this function is for this series
+def create_rename_dic():
+    rn_dic = {}
+
+    for i in range(45):
+        rn_dic[i] = "series-" + str(i+1)
+
+    return rn_dic
+
+def plot_by_series(df, models, steps_in, steps_out, figsize=(16,10)):
+
+    val_df = df.loc[df.index[-(steps_in+steps_out):-steps_out]]
+    val_df = predict_next(val_df, models, steps_in, steps_out)
+    preds = predict_horizon(df, models, steps_in, steps_out)
+
+    for column in df.columns:
+        df_c = pd.DataFrame(df.tail(100)[column])
+        val_df_c =  pd.DataFrame(val_df[column])
+        preds_c = pd.DataFrame(preds[column])
+
+        plt.figure(figsize=figsize)
+        plt.plot(df_c, color="blue", linestyle="-")
+        plt.plot(val_df_c, color="green", linestyle="-")
+        plt.plot(preds_c, color="red", linestyle="--")
+        plt.legend(["Train series", "Validation series", "Predicted series"])
+        plt.title("Predictions using the LinearRegression model on " + str(column))
+
+        plt.show()
+
+def plot_all(df, models, steps_in, steps_out, figsize=(16,10)):
+
+    val_df = df.loc[df.index[-(steps_in+steps_out):-steps_out]]
+    val_df = predict_next(val_df, models, steps_in, steps_out)
+    preds = predict_horizon(df, models, steps_in, steps_out)
+
+    df_plot = df.tail(100)
+
+    plt.figure(figsize=figsize)
+    plt.plot(df_plot, color="blue", linestyle="-")
+    plt.plot(val_df, color="green", linestyle="-")
+    plt.plot(preds, color="red", linestyle="--")
+    plt.legend(["Train series", "Validation series", "Predicted series"])
+    plt.title("Predictions using the LinearRegression model")
+
+    plt.show()
