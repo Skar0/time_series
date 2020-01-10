@@ -7,10 +7,83 @@ from datetime import datetime
 from sklearn import preprocessing
 from sklearn.model_selection import KFold
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import LinearRegression
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+################################################################################
+################################################################################
+# some preprocessing functions, must of all to remove outliers
+
+def remove_q_outliers(data: pd.DataFrame, alpha=1.5):
+    df = data.copy(deep=True)
+    (ind, series) = tuple(df.shape)
+    for s in range(series):
+        serie = df.iloc[:, s]
+        med = np.median(serie)  # most seen value
+        q25, q75 = np.percentile(serie, 25), np.percentile(serie, 75)
+        iqr = q75 - q25
+        qoutliers1 = serie < q25 - alpha * iqr
+        qoutliers2 = serie > q75 + alpha * iqr
+        serie[qoutliers1] = np.nan
+        serie[qoutliers2] = np.nan
+        serie.fillna(med, inplace=True)
+        df.iloc[:, s] = serie
+    return df
+
+
+def remove_z_outliers(data: pd.DataFrame, beta=3, gamma=0.6745):
+    df = data.copy(deep=True)
+    (ind, series) = tuple(df.shape)
+    for s in range(series):
+        serie = df.iloc[:, s]
+        med = np.median(serie)  # most seen value
+        mad = np.median(np.abs(serie - med))
+        zoutlier = (gamma * (serie - med)) / mad > beta
+        serie[zoutlier] = np.nan
+        serie.fillna(med, inplace=True)
+        df.iloc[:, s] = serie
+    return df
+
+
+# :/
+def remove_outliers(data: pd.DataFrame, alpha=1.5, beta=3, gamma=0.6745):
+    """
+    this function removes outliers with two types of test:
+    iqr test and z-score test, the z-score test has been modified to use the
+    median, as the usual z-score is radically affected by outliers
+    - alpha is a parameter for the iqr test
+    - beta, gamma are for the z-mod-score test
+    """
+    df = data.copy(deep=True)
+    (ind, series) = tuple(df.shape)
+    for s in range(series):
+        # extract the column
+        serie = df.iloc[:, s]
+        # compute needed stats
+        q25, q75 = np.percentile(serie, 25), np.percentile(serie, 75)
+        iqr = q75 - q25
+        med = np.median(serie)  # most seen value
+        mad = np.median(np.abs(serie - med))
+
+        # z-score test
+        zoutlier = (gamma * (serie - med)) / mad > beta
+
+        # iqr outliers test
+        qoutliers1 = serie < q25 - alpha * iqr
+        qoutliers2 = serie > q75 + alpha * iqr
+
+        # put and remove NaN values
+        serie[zoutlier] = np.nan
+        serie[qoutliers1] = np.nan
+        serie[qoutliers2] = np.nan
+        serie.fillna(med, inplace=True)
+        df.iloc[:, s] = serie
+    return df
+
+################################################################################
+################################################################################
 
 def split_between_train_and_val(df: pd.DataFrame, steps_in, steps_out):
     train_df = df.head(len(df)-steps_in-steps_out).copy()
