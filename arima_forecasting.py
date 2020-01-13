@@ -1,14 +1,23 @@
-from keras import Sequential
-from keras.layers import Dense, LSTM
+import pandas as pd
+from matplotlib import pyplot as plt
 from pmdarima import auto_arima, arima
 
-from utils import remove_outliers, normalize_series, split_sequence, smape, keyvalue, split_sequence_nn_with_past_multi_step, split_sequence_nn_with_past_outliers_multi_step
-from matplotlib import pyplot as plt
-import pandas as pd
-import statsmodels.api as sm
+from utils import remove_outliers, normalize_series, smape
 
 
 def auto_arima_forecast(series, validation_series, horizon, del_outliers=False, normalize=False, plot=False):
+    """
+    Fits an auto arima model from the series to find the best parameters. Performance of the trained model is assessed
+    on a validation series.
+
+    :param series:
+    :param validation_series:
+    :param horizon:
+    :param del_outliers:
+    :param normalize:
+    :param plot:
+    :return: SMAPE for the validation series, the forecast validation series
+    """
 
     # whether to remove outliers in the training series
     if del_outliers:
@@ -75,16 +84,28 @@ def auto_arima_forecast(series, validation_series, horizon, del_outliers=False, 
 
         plt.legend(["Train series", "Validation series", "Predicted series"])
 
-        plt.title("Validation of auto ARIMA")
+        plt.title("Validation of auto arima model")
 
         plt.show()
-
-    # print("SMAPE is " + str(smape(validation_series, forecasts['forecast'])))
 
     return smape(validation_series, forecast_dataframe['forecast']), forecast_dataframe['forecast'], order, seasonal_order
 
 
 def arima_forecast(series, validation_series, horizon, order, seasonal_order, del_outliers=False, normalize=False, plot=False):
+    """
+    Creates an arima model with the provided order and seasonal order and assess performance of the model is on a
+    validation series.
+    
+    :param series:
+    :param validation_series:
+    :param horizon:
+    :param order:
+    :param seasonal_order:
+    :param del_outliers:
+    :param normalize:
+    :param plot:
+    :return: SMAPE for the validation series, the forecast validation series
+    """
 
     # whether to remove outliers in the training series
     if del_outliers:
@@ -143,10 +164,8 @@ def arima_forecast(series, validation_series, horizon, order, seasonal_order, de
 
         plt.legend(["Train series", "Validation series", "Predicted series"])
 
-        plt.title("Validation of auto ARIMA")
+        plt.title("Validation of arima model with order "+str(order)+" seasonal order "+str(seasonal_order))
 
         plt.show()
-
-    # print("SMAPE is " + str(smape(validation_series, forecasts['forecast'])))
 
     return smape(validation_series, forecast_dataframe['forecast']), forecast_dataframe['forecast']

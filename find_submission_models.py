@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 from neural_networks_models.nn_single_step_forecasting import nn_single_step_forecast, nn_with_past_outliers_single_step_forecast, \
     nn_with_past_single_step_forecast
 
-from auto_arima_forecasting import auto_arima_forecast, arima_forecast
+from arima_forecasting import auto_arima_forecast, arima_forecast
 from neural_networks_models.nn_multi_step_forecasting import nn_multi_step_forecast, nn_with_past_multi_step_forecast, \
     nn_with_past_outliers_multi_step_forecast
 # These models and parameters have been chosen through experiments
