@@ -95,7 +95,7 @@ def arima_forecast(series, validation_series, horizon, order, seasonal_order, de
     """
     Creates an arima model with the provided order and seasonal order and assess performance of the model is on a
     validation series.
-    
+
     :param series:
     :param validation_series:
     :param horizon:
