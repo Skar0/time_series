@@ -102,3 +102,68 @@ def split_sequence(sequence, n_steps_in, n_steps_out):
         X.append(seq_x)
         y.append(seq_y)
     return np.array(X), np.array(y)
+
+
+def weighted_prediction(scores, preds):
+    """
+    suppose we used n methods for prediction
+    format of entries:
+        -scores: array of shape (n,45) where  score[i] is an array with 
+            the score of method i for the 45 series
+            -- by score of a method I mean the smape error
+            and scores[i][j] is the score of method i for serie j+1 (mind
+            the index)
+        -preds : list of length n where preds[i] is a DATAFRAME that
+            method i predicted, not a dataframe with only 1 series,
+            the whole dataframe with 45 series inside, that is preds[i], 
+            is ready for submission
+    :return: 
+    """
+
+    if len(scores) == 1:  # only one method, return the series
+        return preds[0]
+    else:
+        n = len(scores)
+        # first compute total error by series
+        total_error = {}
+        for i in range(45):
+            score = 0
+            for j in range(n):
+                score += scores[j][i]
+
+            total_error[i] = score
+
+        # now total_error is a dict with total_error[i] the total error
+        # of all methods for the serie-(i+1)
+
+        # create array of weight by method and series, being proportional
+        # to the error
+        normalizer = n-1
+        weights = np.zeros(scores.shape)
+        for i in range(n):
+            for j in range(45):
+                weights[i][j] = (1 / float(normalizer)) * (1 - scores[i][j]/total_error[j])
+
+        # now weights[i][j] is the weights for serie j+1 given by method i
+
+        # create a series to accumulate the mean of all methods
+        df = pd.DataFrame(np.zeros(preds[0].shape), index=preds[0].index)
+
+        # note that this series does not have the good name for the columns
+        # we change that now
+        rn = {}
+        for i in range(45):
+            rn[i] = 'series-' + str(i+1)
+        df = df.rename(columns=rn)
+        # now df has the good shape, the good name for the columns and zeros
+        # everywhere
+
+        for i in range(n):  # for each method
+            for j in range(45):  # for each column
+                column = 'series-' + str(j+1)
+
+                # df[column] receives the weighted sum of values
+                df[column] = df[column] + preds[i][column] * weights[i][j]
+
+        return df
+
