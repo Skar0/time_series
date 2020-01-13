@@ -1,20 +1,21 @@
+import numpy as np
+import pandas as pd
 from keras import Sequential
 from keras.layers import Dense
-from utils import remove_outliers, normalize_series, split_sequence, smape, split_sequence_nn_with_past_multi_step, split_sequence_nn_with_past_outliers_multi_step
 from matplotlib import pyplot as plt
-import pandas as pd
-import numpy as np
-import statsmodels.api as sm
+
+from utils import remove_outliers, normalize_series, split_sequence, smape, split_sequence_nn_with_past_multi_step, \
+    split_sequence_nn_with_past_outliers_multi_step
 
 
-def nn_single_step_forecast(series, validation_series, input_length, horizon, del_outliers=False, normalize=False, plot=False):
+def nn_single_step_forecast(series, validation_series, input_length, horizon, del_outliers=False, normalize=False,
+                            plot=False):
     """
     Perform forecasting of a time series using a simple neural network with a single 128 neurons hidden layer.
     The network is trained using samples of shape input_length (corresponding to the last input_length days) to predict
-    an array of horizon values (corresponding to horizon days).
-
-    Performance of the trained network is assessed on a validation series. The size of the validation series must be
-    horizon.
+    an array of horizon values (corresponding to horizon days). In this case, the network predicts one day at the time.
+    Performance of the trained network is assessed on a validation series. This is computed by repeating one day
+    predictions and shifting the input values. The size of the validation series must be horizon.
 
     :param series:
     :param validation_series:
@@ -77,12 +78,8 @@ def nn_single_step_forecast(series, validation_series, input_length, horizon, de
 
         working_series_values = np.append(working_series_values, validation_forecast)
 
-
     # take last horizon values from the series (this is the forecast for the validation series
     validation_forecast = working_series_values[-horizon:]
-
-    # dataframe which contains the result
-    forecast_dataframe = pd.DataFrame(index=validation_series.index)
 
     # dataframe which contains the result
     forecast_dataframe = pd.DataFrame(index=validation_series.index)
@@ -114,25 +111,26 @@ def nn_single_step_forecast(series, validation_series, input_length, horizon, de
 
         plt.legend(["Train series", "Validation series", "Predicted series"])
 
-        plt.title("Validation of simple NN with input size " + str(n_steps_in) + " output size " + str(n_steps_out))
+        plt.title(
+            "Validation of single step NN with input size " + str(n_steps_in) + " output size " + str(n_steps_out))
 
         plt.show()
-
-    # print("SMAPE is " + str(smape(validation_series, forecasts['forecast'])))
 
     return smape(validation_series, forecast_dataframe['forecast']), forecast_dataframe['forecast']
 
 
-def nn_with_past_single_step_forecast(series, validation_series, input_length, horizon, del_outliers=False, normalize=False,plot=False):
+def nn_with_past_single_step_forecast(series, validation_series, input_length, horizon, del_outliers=False,
+                                      normalize=False, plot=False):
     """
     Perform forecasting of a time series using a simple neural network with a single 128 neurons hidden layer.
     The network is trained using samples of shape input_length (corresponding to the last input_length days) to predict
-    an array of horizon values (corresponding to horizon days).
+    an array of horizon values (corresponding to horizon days). In this case, the network predicts one day at the time.
+    Performance of the trained network is assessed on a validation series. This is computed by repeating one day
+    predictions and shifting the input values. The size of the validation series must be horizon.
 
-    Performance of the trained network is assessed on a validation series. The size of the validation series must be
-    horizon.
-
-    /!\ this uses past values as input
+    This function differs from nn_single_step_forecast as in addition to the last input_length days, we also use the
+    value from the same day the previous year as an input to the network. The hope is to gain information from the
+    previous year.
 
     :param series:
     :param validation_series:
@@ -190,7 +188,8 @@ def nn_with_past_single_step_forecast(series, validation_series, input_length, h
     # perform horizon predictions
     for i in range(horizon):
         # input contains the value from the previous year for the forecast day
-        validation_in_sample = np.append(np.array(working_series_values[-365 + 1]), np.array(working_series_values[-n_steps_in:]))
+        validation_in_sample = np.append(np.array(working_series_values[-365 + 1]),
+                                         np.array(working_series_values[-n_steps_in:]))
         validation_in_sample = validation_in_sample.reshape((1, n_steps_in + 1))
 
         validation_forecast = model.predict(validation_in_sample, verbose=0)
@@ -230,27 +229,26 @@ def nn_with_past_single_step_forecast(series, validation_series, input_length, h
 
         plt.legend(["Train series", "Validation series", "Predicted series"])
 
-        plt.title("Validation of simple NN with input size " + str(n_steps_in) + " output size " + str(n_steps_out))
+        plt.title(
+            "Validation of single step NN with input size " + str(n_steps_in) + " output size " + str(n_steps_out))
 
         plt.show()
-
-    # print("SMAPE is " + str(smape(validation_series, forecasts['forecast'])))
 
     return smape(validation_series, forecast_dataframe['forecast']), forecast_dataframe['forecast']
 
 
 def nn_with_past_outliers_single_step_forecast(series, validation_series, input_length, horizon, del_outliers=False,
-                                      normalize=False, plot=False):
+                                               normalize=False, plot=False):
     """
     Perform forecasting of a time series using a simple neural network with a single 128 neurons hidden layer.
     The network is trained using samples of shape input_length (corresponding to the last input_length days) to predict
-    an array of horizon values (corresponding to horizon days).
+    an array of horizon values (corresponding to horizon days). In this case, the network predicts one day at the time.
+    Performance of the trained network is assessed on a validation series. This is computed by repeating one day
+    predictions and shifting the input values. The size of the validation series must be horizon.
 
-    Performance of the trained network is assessed on a validation series. The size of the validation series must be
-    horizon.
-
-    /!\ this uses past values as input and these past values are only normalized, outliers are not removed
-    other idea is to clip the outliers to the max of the non normalized (maybe 1, to check)
+    This function differs from nn_single_step_forecast as in addition to the last input_length days, we also use the
+    value from the same day the previous year as an input to the network. This value is normalized but contains the
+    outliers. The hope is to gain information from the previous year.
 
     :param series:
     :param validation_series:
@@ -285,7 +283,9 @@ def nn_with_past_outliers_single_step_forecast(series, validation_series, input_
 
     # split into samples, using sample from previous year
     # implementation from multi steps can be used here since single step is special case of multi steps
-    train_samples, train_targets = split_sequence_nn_with_past_outliers_multi_step(train_series, working_series_with_outliers, n_steps_in, n_steps_out)
+    train_samples, train_targets = split_sequence_nn_with_past_outliers_multi_step(train_series,
+                                                                                   working_series_with_outliers,
+                                                                                   n_steps_in, n_steps_out)
 
     # create the model
     model = Sequential()
@@ -322,7 +322,6 @@ def nn_with_past_outliers_single_step_forecast(series, validation_series, input_
     # take last horizon values from the series (this is the forecast for the validation series
     validation_forecast = working_series_values[-horizon:]
 
-
     # dataframe which contains the result
     forecast_dataframe = pd.DataFrame(index=validation_series.index)
 
@@ -357,93 +356,4 @@ def nn_with_past_outliers_single_step_forecast(series, validation_series, input_
 
         plt.show()
 
-    # print("SMAPE is " + str(smape(validation_series, forecasts['forecast'])))
-
     return smape(validation_series, forecast_dataframe['forecast']), forecast_dataframe['forecast']
-
-"""
-def nn_horizon_forecast_steps_mean(series, validation_series, input_length, horizon, del_outliers=False,
-                                   normalize=False,
-                                   plot=False):
-    if del_outliers:
-        working_series = remove_outliers(series)
-
-    else:
-        working_series = series
-
-    if normalize:
-        scaler, working_series = normalize_series(working_series)
-
-    # input sequence is our data
-    raw_seq = np.log1p(working_series)
-
-    # we use the last 10 days as input and predict the full horizon
-    n_steps_in, n_steps_out = input_length, 1
-
-    # split into samples
-    X, y = split_sequence_past_step(raw_seq, n_steps_in, n_steps_out)
-
-    # create the model
-    model = Sequential()
-    model.add(Dense(128, activation='relu', input_dim=n_steps_in + 1))
-    model.add(Dense(n_steps_out))
-
-    # we use 'mae' with data transformed with log1p and expm1 as it approaches smape values
-    model.compile(optimizer='adam', loss='mae')
-
-    # fit model
-    model.fit(X, y, epochs=400, verbose=0)
-
-    # perform prediction
-
-    # input is the last n_steps_in values of the train series since we predict the next horizon days after that
-    working_series_values = np.log1p(working_series.values)
-    for i in range(horizon):
-        # print("Working series last 20 values " + str(working_series_values[-20:]))
-
-        x_input = np.append(np.mean(working_series_values[-366: -364]), np.array(working_series_values[-n_steps_in:]))
-        x_input = x_input.reshape((1, n_steps_in + 1))
-        # print("x input " + str(x_input))
-
-        nn_forecast = model.predict(x_input, verbose=0)
-
-        # print("nn forecast " + str(nn_forecast))
-        working_series_values = np.append(working_series_values, nn_forecast)
-        # print()
-    nn_forecast = working_series_values[-horizon:]
-    # print("nn forecast result " + str(nn_forecast))
-
-    # dataframe which contains the result
-    forecasts = pd.DataFrame(index=validation_series.index)
-
-    if normalize:
-        forecast = np.expm1(nn_forecast)
-
-        inversed = scaler.inverse_transform(forecast.reshape(-1, 1))
-
-        inversed = [val[0] for val in inversed]
-
-        forecasts['forecast'] = inversed
-
-    else:
-        forecasts['forecast'] = np.expm1(nn_forecast)
-
-    if plot:
-        plt.figure(figsize=(10, 6))
-
-        plt.plot(series[-100:], color="blue", linestyle="-")
-        plt.plot(validation_series, color="green", linestyle="-")
-        plt.plot(forecasts, color="red", linestyle="--")
-
-        plt.legend(["Train series", "Validation series", "Predicted series"])
-
-        plt.title("Validation of simple NN with input size " + str(n_steps_in) + " output size " + str(n_steps_out))
-
-        plt.show()
-
-    # print("SMAPE is " + str(smape(validation_series, forecasts['forecast'])))
-
-    return smape(validation_series, forecasts['forecast']), forecasts['forecast']
-
-"""
-#do moyenne de annee passee

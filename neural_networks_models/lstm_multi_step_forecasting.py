@@ -1,20 +1,18 @@
+import numpy as np
+import pandas as pd
 from keras import Sequential
 from keras.layers import Dense, LSTM
-from utils import remove_outliers, normalize_series, split_sequence, smape, keyvalue, split_sequence_nn_with_past_multi_step, split_sequence_nn_with_past_outliers_multi_step
 from matplotlib import pyplot as plt
-import pandas as pd
-import numpy as np
-import statsmodels.api as sm
+from utils import remove_outliers, normalize_series, split_sequence, smape
 
 
-def stacked_lstm_multi_step_forecast(series, validation_series, input_length, horizon, del_outliers=False, normalize=False, plot=False):
+def stacked_lstm_multi_step_forecast(series, validation_series, input_length, horizon, del_outliers=False,
+                                     normalize=False, plot=False):
     """
-    Perform forecasting of a time series using a simple neural network with a single 128 neurons hidden layer.
-    The network is trained using samples of shape input_length (corresponding to the last input_length days) to predict
-    an array of horizon values (corresponding to horizon days).
-
-    Performance of the trained network is assessed on a validation series. The size of the validation series must be
-    horizon.
+    Perform forecasting of a time series using an lstm neural network. The network is trained using samples of shape
+    input_length (corresponding to the last input_length days) to predict an array of horizon values (corresponding to
+    horizon days). In this case, the network predicts horizon days at the time. Performance of the trained network is
+    assessed on a validation series. The size of the validation series must be horizon.
 
     :param series:
     :param validation_series:
@@ -103,10 +101,8 @@ def stacked_lstm_multi_step_forecast(series, validation_series, input_length, ho
 
         plt.legend(["Train series", "Validation series", "Predicted series"])
 
-        plt.title("Validation of simple NN with input size " + str(n_steps_in) + " output size " + str(n_steps_out))
+        plt.title("Validation of LSTM with input size " + str(n_steps_in) + " output size " + str(n_steps_out))
 
         plt.show()
-
-    # print("SMAPE is " + str(smape(validation_series, forecasts['forecast'])))
 
     return smape(validation_series, forecast_dataframe['forecast']), forecast_dataframe['forecast']
