@@ -47,7 +47,16 @@ ARIMA_parameters = [
 [(1, 1, 1), (2, 0, 0, 7)],
 [(0, 1, 2), (2, 0, 2, 7)],
 [(0, 1, 2), (1, 0, 1, 7)],
-[(2, 1, 1), (1, 0, 1, 7)]
+[(2, 1, 1), (1, 0, 1, 7)],
+[(1, 1, 1), (0, 0, 1, 7)],
+[(1, 1, 2), (2, 0, 2, 7)],
+[(0, 1, 2), (2, 0, 2, 7)],
+[(2, 1, 1), (2, 0, 2, 7)],
+[(1, 1, 1), (2, 0, 2, 7)],
+[(1, 1, 1), (1, 0, 0, 7)],
+[(2, 1, 1), (1, 0, 0, 7)],
+[(0, 1, 3), (0, 0, 1, 7)],
+[(1, 1, 2), (1, 0, 1, 7)]
 ]
 
 
@@ -513,7 +522,7 @@ def compute_and_plot_submission_with_arima(save_path, fig_folder):
         ax[2].plot(data_train['series-' + str(i)][-number_of_days:], color="black", linestyle="-")
         ax[2].plot(data_valid['series-' + str(i)], color="green", linestyle="-")
 
-        if i >= 36:
+        if i >= 100:
             smape, forecast, order, seasonal_order = auto_arima_forecast(data_train['series-' + str(i)],
                                                                     data_valid['series-' + str(i)],
                                                                     horizon,
@@ -579,8 +588,8 @@ def compute_and_plot_submission_with_arima(save_path, fig_folder):
         print("--- SERIES "+str(i)+" SMAPES ---")
 
         print("   MODEL " + auto_arima_forecast.__name__ + " PARAM " + str(ARIMA_ORDER_VALID[i-1]) + " SMAPE " + str(record_smapes[i - 1][0]))
-        for model_index in range(1, nbr_models_current_series + 1):
-            print("   MODEL "+nn_models_current_series[model_index].__name__+ " PARAM "+str(nn_models_params_current_series[model_index])+ " SMAPE "+str(record_smapes[i-1][model_index]))
+        for model_index in range(nbr_models_current_series):
+            print("   MODEL "+nn_models_current_series[model_index].__name__+ " PARAM "+str(nn_models_params_current_series[model_index])+ " SMAPE "+str(record_smapes[i-1][model_index+1]))
 
         plt.tight_layout()
         plt.savefig(fig_folder+'series-' + str(i) + "-comparison.pdf")
@@ -610,7 +619,7 @@ def compute_and_plot_submission_with_arima(save_path, fig_folder):
         ax[2].plot(data_valid['series-' + str(i)], color="green", linestyle="-")
 
 
-        if i >= 36:
+        if i >= 100:
             smape, forecast, order, seasonal_order = auto_arima_forecast(data_train_full['series-' + str(i)],
                                                                 data_test,
                                                                 horizon,
