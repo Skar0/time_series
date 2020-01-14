@@ -24,6 +24,44 @@ def remove_outliers(series):
     copy.fillna(med, inplace=True)
     return copy
 
+def remove_outliers_with_bounds(data: pd.DataFrame, alpha=1.5, beta=3, gamma=0.6745):
+    """
+    this function removes outliers with two types of test:
+    iqr test and z-score test, the z-score test has been modified to use the
+    median, as the usual z-score is radically affected by outliers
+    - alpha is a parameter for the iqr test
+    - beta, gamma are for the z-mod-score test
+    """
+    df = data.copy(deep=True)
+    (ind, series) = tuple(df.shape)
+    for s in range(series):
+        # extract the column
+        serie = df.iloc[:, s]
+        # compute needed stats
+        q25, q75 = np.percentile(serie, 25), np.percentile(serie, 75)
+        iqr = q75 - q25
+        med = np.median(serie)  # most seen value
+        mad = np.median(np.abs(serie - med))
+
+        # z-score test
+        zoutlier = (gamma * (serie - med)) / mad > beta
+
+        # iqr outliers test
+        qoutliers1 = serie < q25 - alpha * iqr
+        qoutliers2 = serie > q75 + alpha * iqr
+
+        # put and remove NaN values
+        serie[zoutlier] = np.nan
+        # serie[qoutliers1] = np.nan
+        # serie[qoutliers2] = np.nan
+
+        # test a new idea
+        serie[qoutliers1] = q25 - alpha * iqr
+        serie[qoutliers2] = q75 + alpha * iqr
+
+        serie.fillna(med, inplace=True)
+        df.iloc[:, s] = serie
+    return df
 
 def normalize_series(series):
     """
