@@ -26,13 +26,19 @@ def remove_outliers(series):
 
 def remove_outliers_with_bounds(series, alpha=1.5, beta=3, gamma=0.6745):
     """
-    this function removes outliers with two types of test:
-    iqr test and z-score test, the z-score test has been modified to use the
-    median, as the usual z-score is radically affected by outliers
-    - alpha is a parameter for the iqr test
-    - beta, gamma are for the z-mod-score test
+    This function removes outliers with two types of test: iqr test and z-score test, the z-score test has been modified
+    to use the median, as the usual z-score is radically affected by outliers. Outliers are replaced by the largest or
+    smallest value possible in the series (depending on whether it is a too large or too low outlier).
+
+    :param series:
+    :param alpha: parameter for the iqr test
+    :param beta: parameter for the z-mod-score test
+    :param gamma: parameter for the z-mod-score test
+    :return:
     """
+
     copy = series.copy()
+
     q25, q75 = np.percentile(copy, 25), np.percentile(copy, 75)
     iqr = q75 - q25
     med = np.median(copy)
@@ -49,7 +55,7 @@ def remove_outliers_with_bounds(series, alpha=1.5, beta=3, gamma=0.6745):
     # serie[qoutliers1] = np.nan
     # serie[qoutliers2] = np.nan
 
-    # test a new idea
+    # replace values
     copy[qoutliers1] = q25 - alpha * iqr
     copy[qoutliers2] = q75 + alpha * iqr
 
