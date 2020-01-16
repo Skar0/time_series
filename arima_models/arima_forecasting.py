@@ -1,7 +1,6 @@
 import pandas as pd
 from matplotlib import pyplot as plt
 from pmdarima import auto_arima, arima
-
 from utils import remove_outliers, normalize_series, smape
 
 
@@ -16,7 +15,7 @@ def auto_arima_forecast(series, validation_series, horizon, del_outliers=False, 
     :param del_outliers:
     :param normalize:
     :param plot:
-    :return: SMAPE for the validation series, the forecast validation series
+    :return: SMAPE for the validation series, the forecast validation series, order, seasonal_order
     """
 
     # whether to remove outliers in the training series
@@ -88,10 +87,12 @@ def auto_arima_forecast(series, validation_series, horizon, del_outliers=False, 
 
         plt.show()
 
-    return smape(validation_series, forecast_dataframe['forecast']), forecast_dataframe['forecast'], order, seasonal_order
+    return smape(validation_series, forecast_dataframe['forecast']), forecast_dataframe[
+        'forecast'], order, seasonal_order
 
 
-def arima_forecast(series, validation_series, horizon, order, seasonal_order, del_outliers=False, normalize=False, plot=False):
+def arima_forecast(series, validation_series, horizon, order, seasonal_order, del_outliers=False, normalize=False,
+                   plot=False):
     """
     Creates an arima model with the provided order and seasonal order and assess performance of the model is on a
     validation series.
@@ -164,7 +165,7 @@ def arima_forecast(series, validation_series, horizon, order, seasonal_order, de
 
         plt.legend(["Train series", "Validation series", "Predicted series"])
 
-        plt.title("Validation of arima model with order "+str(order)+" seasonal order "+str(seasonal_order))
+        plt.title("Validation of arima model with order " + str(order) + " seasonal order " + str(seasonal_order))
 
         plt.show()
 
