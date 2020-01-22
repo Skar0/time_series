@@ -24,44 +24,44 @@ def remove_outliers(series):
     copy.fillna(med, inplace=True)
     return copy
 
-def remove_outliers_with_bounds(data: pd.DataFrame, alpha=1.5, beta=3, gamma=0.6745):
+def remove_outliers_with_bounds(series, alpha=1.5, beta=3, gamma=0.6745):
     """
-    this function removes outliers with two types of test:
-    iqr test and z-score test, the z-score test has been modified to use the
-    median, as the usual z-score is radically affected by outliers
-    - alpha is a parameter for the iqr test
-    - beta, gamma are for the z-mod-score test
+    This function removes outliers with two types of test: iqr test and z-score test, the z-score test has been modified
+    to use the median, as the usual z-score is radically affected by outliers. Outliers are replaced by the largest or
+    smallest value possible in the series (depending on whether it is a too large or too low outlier).
+
+    :param series:
+    :param alpha: parameter for the iqr test
+    :param beta: parameter for the z-mod-score test
+    :param gamma: parameter for the z-mod-score test
+    :return:
     """
-    df = data.copy(deep=True)
-    (ind, series) = tuple(df.shape)
-    for s in range(series):
-        # extract the column
-        serie = df.iloc[:, s]
-        # compute needed stats
-        q25, q75 = np.percentile(serie, 25), np.percentile(serie, 75)
-        iqr = q75 - q25
-        med = np.median(serie)  # most seen value
-        mad = np.median(np.abs(serie - med))
 
-        # z-score test
-        zoutlier = (gamma * (serie - med)) / mad > beta
+    copy = series.copy()
 
-        # iqr outliers test
-        qoutliers1 = serie < q25 - alpha * iqr
-        qoutliers2 = serie > q75 + alpha * iqr
+    q25, q75 = np.percentile(copy, 25), np.percentile(copy, 75)
+    iqr = q75 - q25
+    med = np.median(copy)
 
-        # put and remove NaN values
-        serie[zoutlier] = np.nan
-        # serie[qoutliers1] = np.nan
-        # serie[qoutliers2] = np.nan
+    mad = np.median(np.abs(copy - med))
+    zoutlier = (gamma * (copy - med)) / mad > beta
 
-        # test a new idea
-        serie[qoutliers1] = q25 - alpha * iqr
-        serie[qoutliers2] = q75 + alpha * iqr
+    # iqr outliers test
+    qoutliers1 = copy < q25 - alpha * iqr
+    qoutliers2 = copy > q75 + alpha * iqr
 
-        serie.fillna(med, inplace=True)
-        df.iloc[:, s] = serie
-    return df
+    # put and remove NaN values
+    # copy[zoutlier] = np.nan
+    # serie[qoutliers1] = np.nan
+    # serie[qoutliers2] = np.nan
+
+    # replace values
+    copy[qoutliers1] = q25 - alpha * iqr
+    copy[qoutliers2] = q75 + alpha * iqr
+
+    copy.fillna(med, inplace=True)
+
+    return copy
 
 def normalize_series(series):
     """
