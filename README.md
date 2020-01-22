@@ -26,28 +26,42 @@ functions as legible as possible. We also made sure to create functions that cou
 give us visualisation of our progress. The code is organized as follows :
 
 ```bash
-├── find_submission_models.py
-├── tools.py
-├── utils.py
-├── data/
+├── arima_models
+│   ├── arima_forecasting.py
+│   └── __init__.py
+├── data
 │   └── train.csv
-├── neural_networks_models/
+├── find_submission_models.py
+├── neural_networks_models
+│   ├── __init__.py
 │   ├── lstm_multi_step_forecasting.py
 │   ├── nn_multi_step_forecasting.py
-│   └──	nn_single_step_forecasting.py
-├── arima_models/
-│   └──	arima_forecasting.py
-├── regression_models/
-│   └──	simple_regression.py
-├── notebooks/
+│   └── nn_single_step_forecasting.py
+├── notebooks
+│   ├── good_regression_forecasting.ipynb
 │   └── xgboost_plus_weights.ipynb
-├── submissions/
-│   ├── submission_1.csv
-│   └── submission_2.csv
+├── one_step_regression.py
+├── README.md
+├── regression_models
+│   ├── __init__.py
+│   ├── regression_forecasting.py
+│   ├── regression_preprocessing.py
+│   └── regression_tools.py
+├── submissions
+│   ├── sarima_scaled.csv
+│   ├── sarima_scaled_exog_all.csv
+│   ├── sarima_scaled_exog.csv
+│   ├── submission_arima.csv
+│   ├── submission_arima_outliers2.csv
+│   ├── submission_arima_outliers.csv
+│   └── submission_prophet.csv
+├── tools.py
+├── utils.py
+└── xgboost_plus_weights.ipynb
 ```
 
 For this competition, we evaluated three types of models. Each model was tested on a validation series provided while fitting.
-First, ARIMA-based models were tested. We estimated ARIMA parameters using auto arima from pmdarima. Then we used regression-based techniques such as linear regression and gradientboosting using xgbboost.
+First, ARIMA-based models were tested. We estimated ARIMA parameters using auto arima from pmdarima. Then we used regression-based techniques such as linear regression and gradientboosting using xgboost.
 Lastly, we tried neural network models. First by predicting several steps at the time and then one step at the time. Finaly, LSTM were tried.
 find_submission_models performed model fitting and evaluation on each series and selected best models for submission.
 
